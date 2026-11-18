@@ -33,6 +33,22 @@ muncul **iklan Adsterra** dengan tombol "Lewati iklan" (aktif setelah 5 detik) â
 
 Data panel tersimpan di browser. Rajin-rajin **Export JSON** untuk backup.
 
+## Login panel
+
+Panel dikunci dengan username dan password. Di dalam kode hanya tersimpan **hash** password
+(PBKDF2-SHA256 + salt), bukan password aslinya.
+
+**Ganti username atau password:**
+1. Buka `ganti-password.html` di situs GitHub Pages, isi username dan password baru, lalu klik **Buat kode**.
+2. Salin hasilnya, lalu ganti blok `var AUTH = { ... };` di `panel.html`.
+3. Commit dan push.
+
+**Batasan:** situs ini statis (tanpa server), jadi kunci ini adalah gerbang di sisi browser.
+Kunci ini cukup untuk menghalangi pengunjung biasa. Tapi orang yang paham teknis tetap bisa membaca source halaman,
+dan password yang lemah bisa ditebak dari hash-nya. Gunakan password yang panjang.
+Kalau butuh login yang benar-benar aman, pindahkan situs ke Cloudflare Pages dan pasang **Cloudflare Access** (gratis).
+Dengan itu, login dicek di server sebelum halaman dikirim.
+
 ## Hal penting supaya aman
 
 - **Video harus milikmu atau kamu punya hak menyebarkannya.** Film atau video bajakan bisa membuat blog dihapus karena DMCA, dan akun Adsterra ikut kena.

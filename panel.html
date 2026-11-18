@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Video Panel</title>
+<title>Masuk — Video Panel</title>
+<meta name="robots" content="noindex, nofollow">
 <style>
   :root{--bg:#0f1115;--card:#181b22;--text:#e8e8ea;--muted:#9aa0aa;--line:#2a2e38;--primary:#e50914;--primary-h:#ff2a35;--ok:#2ecc71;--bad:#ff5c5c}
   @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f3f4f6;--card:#fff;--text:#1d2327;--muted:#646970;--line:#dcdcde}}
@@ -33,12 +34,63 @@
   .toast{position:fixed;right:16px;bottom:16px;padding:10px 14px;border-radius:6px;color:#fff;background:var(--ok);z-index:20}
   .toast.error{background:var(--bad)}
   @media (max-width:640px){.grid2{grid-template-columns:1fr}}
+  [hidden]{display:none !important}
+  /* ---- Login ---- */
+  .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:radial-gradient(ellipse at top,color-mix(in srgb,var(--primary) 18%,var(--bg)),var(--bg) 60%)}
+  .login-card{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 24px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}
+  .brand-mark{width:34px;height:34px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
+  .brand em{font-style:normal;color:var(--primary)}
+  .login-card h1{font-size:18px;margin:20px 0 4px}
+  .login-card .sub{margin:0 0 18px;font-size:13px}
+  .pass-wrap{position:relative}
+  .pass-wrap input{padding-right:64px}
+  .pass-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);cursor:pointer;font:600 12px inherit;padding:4px 6px}
+  .login-btn{width:100%;justify-content:center;padding:10px;margin-top:6px}
+  .login-err{color:var(--bad);font-size:13px;min-height:20px;margin:8px 0 0}
+  .remember{display:flex;align-items:center;gap:6px;font-weight:400;color:var(--muted);font-size:13px;margin:4px 0 0}
+  .remember input{width:auto}
+  /* ---- App shell ---- */
+  .topbar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .topbar-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--primary) 25%,var(--card));color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:700;text-transform:uppercase}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .stat b{display:block;font-size:22px}
+  .stat small{color:var(--muted)}
+  @media (max-width:640px){.stats{grid-template-columns:1fr 1fr}.user .uname{display:none}}
 </style>
 </head>
 <body>
+<div class="login" id="login">
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="brand"><div class="brand-mark">▶</div><div>Video<em>Panel</em></div></div>
+    <h1>Masuk ke panel</h1>
+    <p class="sub">Gunakan akun admin untuk melanjutkan.</p>
+    <div class="field"><label for="l-user">Username</label><input id="l-user" name="username" autocomplete="username" required autofocus></div>
+    <div class="field">
+      <label for="l-pass">Password</label>
+      <div class="pass-wrap"><input id="l-pass" name="password" type="password" autocomplete="current-password" required><button type="button" class="pass-toggle" id="l-toggle">Lihat</button></div>
+    </div>
+    <label class="remember"><input type="checkbox" id="l-remember"> Ingat saya di perangkat ini</label>
+    <button class="btn primary login-btn" type="submit" id="l-submit">Masuk</button>
+    <p class="login-err" id="l-err" role="alert"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+<header class="topbar"><div class="topbar-in">
+  <div class="brand"><div class="brand-mark">▶</div><div>Video<em>Panel</em></div></div>
+  <div class="user"><div class="avatar" id="u-avatar"></div><span class="uname" id="u-name"></span><button class="btn sm" id="logout">Keluar</button></div>
+</div></header>
 <div class="wrap">
-  <h1>Video<span>Panel</span></h1>
   <p class="sub">Tambah video → salin link → sebar. Link membuka halaman player di blog kamu, dengan iklan yang muncul di tengah video.</p>
+  <div class="stats">
+    <div class="stat"><b id="st-total">0</b><small>Total video</small></div>
+    <div class="stat"><b id="st-thumb">0</b><small>Dengan thumbnail</small></div>
+    <div class="stat"><b id="st-page">—</b><small>Halaman player</small></div>
+  </div>
 
   <div class="card">
     <h2>Pengaturan</h2>
@@ -85,6 +137,75 @@
     <div class="list" id="list"></div>
   </div>
 </div>
+</div>
+
+<script>
+/* ---------- Login (gerbang sisi browser) ----------
+   Password tidak disimpan di sini, hanya hash PBKDF2-SHA256 bergaram.
+   Untuk ganti password: lihat README bagian "Ganti username/password". */
+(function () {
+  'use strict';
+  var AUTH = {
+    user: 'dirga',
+    salt: 'e720ddf4e5141e57c4adadcad1ea9a57',
+    hash: '49ce626ce2719da8d2cf26c43ea4eb5f0664af1a6ed9483aa1fe1e737009be49',
+    iterations: 310000
+  };
+  var SKEY = 'vp_session';
+  var $ = function (id) { return document.getElementById(id); };
+  var fails = 0, lockUntil = 0;
+
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
+  function unhex(h) { var a = new Uint8Array(h.length / 2); for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; }
+  function derive(user, pass) {
+    if (!window.crypto || !crypto.subtle) return Promise.reject(new Error('Browser tidak mendukung login aman. Buka lewat https.'));
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(user + '\n' + pass), 'PBKDF2', false, ['deriveBits'])
+      .then(function (k) { return crypto.subtle.deriveBits({ name: 'PBKDF2', salt: unhex(AUTH.salt), iterations: AUTH.iterations, hash: 'SHA-256' }, k, 256); })
+      .then(hex);
+  }
+  function getSession() {
+    var raw = null;
+    try { raw = sessionStorage.getItem(SKEY) || localStorage.getItem(SKEY); } catch (e) {}
+    return raw === AUTH.hash.slice(0, 16) + AUTH.user;
+  }
+  function setSession(remember) {
+    var v = AUTH.hash.slice(0, 16) + AUTH.user;
+    try { (remember ? localStorage : sessionStorage).setItem(SKEY, v); } catch (e) {}
+  }
+  function clearSession() { try { sessionStorage.removeItem(SKEY); localStorage.removeItem(SKEY); } catch (e) {} }
+  function showApp() {
+    $('login').hidden = true; $('app').hidden = false;
+    $('u-name').textContent = AUTH.user; $('u-avatar').textContent = AUTH.user.charAt(0);
+    document.title = 'Video Panel — Dashboard';
+  }
+  function showLogin() { $('app').hidden = true; $('login').hidden = false; $('l-pass').value = ''; $('l-user').focus(); document.title = 'Masuk — Video Panel'; }
+
+  $('l-toggle').onclick = function () {
+    var p = $('l-pass'); p.type = p.type === 'password' ? 'text' : 'password'; this.textContent = p.type === 'password' ? 'Lihat' : 'Sembunyikan';
+  };
+  $('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('l-err'), btn = $('l-submit');
+    if (Date.now() < lockUntil) { err.textContent = 'Terlalu banyak percobaan. Coba lagi dalam ' + Math.ceil((lockUntil - Date.now()) / 1000) + ' detik.'; return; }
+    var u = $('l-user').value.trim().toLowerCase(), p = $('l-pass').value;
+    if (!u || !p) { err.textContent = 'Isi username dan password.'; return; }
+    btn.disabled = true; btn.textContent = 'Memeriksa…'; err.textContent = '';
+    derive(u, p).then(function (h) {
+      if (u === AUTH.user && h === AUTH.hash) { fails = 0; setSession($('l-remember').checked); showApp(); }
+      else {
+        fails++;
+        if (fails >= 5) { lockUntil = Date.now() + 30000; fails = 0; err.textContent = 'Terlalu banyak percobaan. Tunggu 30 detik.'; }
+        else err.textContent = 'Username atau password salah.';
+        $('l-pass').value = ''; $('l-pass').focus();
+      }
+    }, function (x) { err.textContent = x.message; })
+      .then(function () { btn.disabled = false; btn.textContent = 'Masuk'; });
+  });
+  $('logout').onclick = function () { clearSession(); showLogin(); };
+
+  if (getSession()) showApp(); else showLogin();
+})();
+</script>
 
 <script>
 (function () {
@@ -116,6 +237,9 @@
     var q = $('search').value.trim().toLowerCase();
     var vs = state.videos.slice().reverse().filter(function (v) { return !q || v.title.toLowerCase().indexOf(q) > -1; });
     $('count').textContent = state.videos.length;
+    $('st-total').textContent = state.videos.length;
+    $('st-thumb').textContent = state.videos.filter(function (v) { return v.poster; }).length;
+    $('st-page').textContent = state.pageUrl ? state.pageUrl.replace(/^https?:\/\//, '').split('/')[0] : '—';
     $('list').innerHTML = vs.length ? vs.map(function (v) {
       var l = linkFor(v);
       return '<div class="vcard"><div class="vthumb"' + (v.poster ? ' style="background-image:url(\'' + esc(v.poster).replace(/'/g, '%27') + '\')"' : '') + '>' + (v.poster ? '' : '▶') + '</div>' +
