@@ -1,0 +1,139 @@
+<!-- =====================================================================
+  HALAMAN PLAYER VIDEO + IKLAN (untuk Blogger)
+  Blogger -> Halaman -> Halaman baru -> judul "Nonton" -> mode "Tampilan HTML"
+  -> tempel SEMUA isi file ini -> Publikasikan.
+  Lalu isi KONFIGURASI di bawah dan tempel kode iklan Adsterra di <template>.
+====================================================================== -->
+
+<!-- Tempel kode BANNER Adsterra (misal 300x250) di antara tag textarea ini, apa adanya -->
+<textarea id="vp-ad-code" style="display:none" aria-hidden="true">
+
+</textarea>
+
+<div id="vp-root" class="vp-root">
+  <h2 id="vp-title" class="vp-title">Memuat video…</h2>
+  <div class="vp-player" id="vp-player">
+    <video id="vp-video" controls playsinline preload="metadata"></video>
+    <div class="vp-ad" id="vp-ad" hidden>
+      <div class="vp-ad-box">
+        <div class="vp-ad-head"><span class="vp-ad-label">Iklan</span></div>
+        <iframe id="vp-ad-frame" class="vp-ad-frame" title="Iklan" scrolling="no"></iframe>
+        <a id="vp-ad-sponsor" class="vp-ad-sponsor" target="_blank" rel="sponsored nofollow noopener" hidden>Kunjungi Sponsor</a>
+        <button type="button" id="vp-ad-skip" class="vp-ad-skip" disabled>Lewati iklan</button>
+      </div>
+    </div>
+  </div>
+  <p id="vp-desc" class="vp-desc"></p>
+</div>
+
+<style>
+  .vp-root{max-width:860px;margin:0 auto}
+  .vp-title{font:700 20px/1.3 Arial,sans-serif;margin:0 0 10px}
+  .vp-player{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+  .vp-player video{width:100%;height:100%;display:block;background:#000}
+  .vp-ad{position:absolute;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:5;padding:10px;box-sizing:border-box}
+  .vp-ad[hidden]{display:none}
+  .vp-ad-box{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:100%;max-height:100%}
+  .vp-ad-head{width:100%;display:flex;justify-content:space-between;color:#ccc;font:12px Arial,sans-serif}
+  .vp-ad-label{background:#ffd166;color:#000;font-weight:700;padding:1px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.05em}
+  .vp-ad-frame{border:0;width:300px;height:250px;max-width:100%;background:#111}
+  .vp-ad-sponsor{color:#fff !important;font:700 13px Arial,sans-serif;text-decoration:underline !important}
+  .vp-ad-skip{background:#fff;color:#000;border:0;border-radius:4px;padding:8px 16px;font:700 13px Arial,sans-serif;cursor:pointer}
+  .vp-ad-skip:disabled{background:#555;color:#bbb;cursor:default}
+  .vp-desc{font:14px/1.6 Arial,sans-serif;color:#555;margin-top:10px}
+  @media (max-height:420px),(max-width:380px){.vp-ad-frame{transform:scale(.8);margin:-25px 0}}
+</style>
+
+<script>
+(function () {
+  /* ================= KONFIGURASI ================= */
+  var VP = {
+    iklanSetelahDetik: 10,    // iklan muncul setelah video diputar sekian detik
+    iklanSaatDipercepat: true,// iklan muncul saat penonton loncat / percepat video
+    bolehLewatiSetelah: 5,    // tombol "Lewati iklan" aktif setelah sekian detik
+    maksIklanPerVideo: 2,     // batas iklan per video, supaya penonton tidak kabur
+    smartlinkUrl: "",         // opsional: Smartlink Adsterra (tombol "Kunjungi Sponsor")
+    lebarBanner: 300, tinggiBanner: 250 // samakan dengan ukuran banner Adsterra kamu
+  };
+  /* =============================================== */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var video = $("vp-video"), ad = $("vp-ad"), skip = $("vp-ad-skip"), frame = $("vp-ad-frame");
+  var shown = 0, midDone = false, seekDone = false, inAd = false, lastTime = 0, resumeAt = null, timer = null;
+
+  function decode(s) {
+    try {
+      s = s.replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      return JSON.parse(decodeURIComponent(escape(atob(s))));
+    } catch (e) { return null; }
+  }
+  var m = /[?&]v=([^&#]+)/.exec(location.search);
+  var data = m ? decode(m[1]) : null;
+  if (!data || !/^https?:\/\//i.test(data.u || "")) {
+    $("vp-title").textContent = "Video tidak ditemukan";
+    $("vp-player").hidden = true;
+    return;
+  }
+  $("vp-title").textContent = data.t || "Video";
+  document.title = (data.t || "Video") + " - " + document.title;
+  if (data.d) $("vp-desc").textContent = data.d;
+  if (data.p) video.poster = data.p;
+  video.src = data.u;
+  if (data.a > 0) VP.iklanSetelahDetik = data.a;
+
+  frame.style.width = VP.lebarBanner + "px";
+  frame.style.height = VP.tinggiBanner + "px";
+  if (VP.smartlinkUrl) { $("vp-ad-sponsor").href = VP.smartlinkUrl; $("vp-ad-sponsor").hidden = false; }
+
+  function showAd() {
+    if (inAd || shown >= VP.maksIklanPerVideo) return false;
+    inAd = true; shown++;
+    video.pause();
+    var code = $("vp-ad-code").value.trim();
+    frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#111;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100%}</style></head><body>' +
+      (code || '<div style="color:#888;font:13px Arial">Ruang iklan</div>') + '</body></html>';
+    ad.hidden = false;
+    var left = VP.bolehLewatiSetelah;
+    skip.disabled = true;
+    function tick() {
+      if (left > 0) { skip.textContent = "Lewati dalam " + left; left--; timer = setTimeout(tick, 1000); }
+      else { skip.disabled = false; skip.textContent = "Lewati iklan ▶"; }
+    }
+    tick();
+    return true;
+  }
+  function closeAd() {
+    clearTimeout(timer);
+    ad.hidden = true;
+    frame.srcdoc = "";
+    inAd = false;
+    if (resumeAt !== null) { video.currentTime = resumeAt; resumeAt = null; }
+    var p = video.play(); if (p && p.catch) p.catch(function () {});
+  }
+  skip.onclick = function () { if (!skip.disabled) closeAd(); };
+
+  video.addEventListener("timeupdate", function () {
+    if (!video.seeking) lastTime = video.currentTime;
+    if (!midDone && !inAd && video.currentTime >= VP.iklanSetelahDetik) {
+      midDone = true; showAd();
+    }
+  });
+  video.addEventListener("seeking", function () {
+    if (!VP.iklanSaatDipercepat || seekDone || inAd) return;
+    if (video.currentTime - lastTime > 3) { // loncat ke depan > 3 detik
+      seekDone = true;
+      midDone = true; // iklan "setelah X detik" tidak diulang
+      resumeAt = video.currentTime;
+      showAd();
+    }
+  });
+  video.addEventListener("ratechange", function () {
+    if (!VP.iklanSaatDipercepat || seekDone || inAd || video.playbackRate <= 1) return;
+    seekDone = true; midDone = true; resumeAt = video.currentTime; showAd();
+  });
+  video.addEventListener("play", function () { if (inAd) video.pause(); });
+
+  window.__vp = { showAd: showAd, closeAd: closeAd, state: function () { return { shown: shown, inAd: inAd, midDone: midDone, seekDone: seekDone }; } };
+})();
+</script>

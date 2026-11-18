@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Panel</title>
+<style>
+  :root{--bg:#0f1115;--card:#181b22;--text:#e8e8ea;--muted:#9aa0aa;--line:#2a2e38;--primary:#e50914;--primary-h:#ff2a35;--ok:#2ecc71;--bad:#ff5c5c}
+  @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f3f4f6;--card:#fff;--text:#1d2327;--muted:#646970;--line:#dcdcde}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  h1{font-size:24px;margin:0 0 4px}h1 span{color:var(--primary)}
+  h2{font-size:17px;margin:0 0 12px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  input,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font:inherit}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field{margin-bottom:12px}
+  .hint{color:var(--muted);font-size:12px;margin-top:3px}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--primary);color:var(--primary);background:transparent;border-radius:6px;cursor:pointer;font:inherit;font-weight:600;white-space:nowrap}
+  .btn.primary{background:var(--primary);color:#fff}.btn.primary:hover{background:var(--primary-h)}
+  .btn.sm{padding:4px 10px;font-size:12px}.btn.danger{border-color:var(--bad);color:var(--bad)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .vcard{background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .vthumb{aspect-ratio:16/9;background:#000 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px}
+  .vbody{padding:10px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .vtitle{font-weight:700;word-break:break-word}
+  .vlink{font-size:11px;color:var(--muted);word-break:break-all;background:var(--card);padding:4px 6px;border-radius:4px}
+  .empty{color:var(--muted)}
+  .toast{position:fixed;right:16px;bottom:16px;padding:10px 14px;border-radius:6px;color:#fff;background:var(--ok);z-index:20}
+  .toast.error{background:var(--bad)}
+  @media (max-width:640px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Video<span>Panel</span></h1>
+  <p class="sub">Tambah video → salin link → sebar. Link membuka halaman player di blog kamu, dengan iklan yang muncul di tengah video.</p>
+
+  <div class="card">
+    <h2>Pengaturan</h2>
+    <div class="field">
+      <label for="page-url">URL halaman player di Blogger</label>
+      <input type="url" id="page-url" placeholder="https://namablog.blogspot.com/p/nonton.html">
+      <div class="hint">Halaman yang berisi kode dari halaman-player.html.</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="export">⬇ Export JSON</button>
+      <label class="btn" style="margin:0">⬆ Import JSON<input type="file" id="import" accept=".json" hidden></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="form-title">Tambah Video</h2>
+    <form id="form" novalidate>
+      <input type="hidden" id="f-id">
+      <div class="field"><label for="f-title">Judul</label><input id="f-title" required></div>
+      <div class="field">
+        <label for="f-url">URL video (MP4 / WebM langsung)</label>
+        <input type="url" id="f-url" placeholder="https://…/video.mp4" required>
+        <div class="hint">Harus link file video langsung milikmu (bukan YouTube). Contoh hosting: Bunny Stream, Cloudflare R2, Backblaze, hosting sendiri.</div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="f-poster">URL thumbnail (opsional)</label><input type="url" id="f-poster" placeholder="https://…/thumb.jpg"></div>
+        <div class="field"><label for="f-after">Iklan setelah detik ke- (opsional)</label><input type="number" id="f-after" min="1" placeholder="pakai default halaman"></div>
+      </div>
+      <div class="field"><label for="f-desc">Deskripsi (opsional)</label><textarea id="f-desc" rows="2"></textarea></div>
+      <div class="row">
+        <button type="submit" class="btn primary">Simpan</button>
+        <button type="button" class="btn" id="cancel" hidden>Batal edit</button>
+        <button type="button" class="btn" id="preview">▶ Coba putar URL</button>
+      </div>
+      <video id="pv" controls style="width:100%;max-height:260px;margin-top:10px;display:none;background:#000;border-radius:8px"></video>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">Daftar Video (<span id="count">0</span>)</h2>
+      <input type="search" id="search" placeholder="Cari judul" style="max-width:260px">
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var KEY = 'video_panel_v1';
+  var $ = function (id) { return document.getElementById(id); };
+  var state = load();
+
+  function load() {
+    try { var s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.videos)) return s; } catch (e) {}
+    return { pageUrl: '', nextId: 1, videos: [] };
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} render(); }
+  function toast(m, t) { var d = document.createElement('div'); d.className = 'toast' + (t ? ' error' : ''); d.textContent = m; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 2800); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function encode(obj) {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function linkFor(v) {
+    var o = { t: v.title, u: v.url };
+    if (v.poster) o.p = v.poster;
+    if (v.after) o.a = v.after;
+    if (v.desc) o.d = v.desc;
+    var base = (state.pageUrl || 'https://namablog.blogspot.com/p/nonton.html').trim();
+    return base + (base.indexOf('?') > -1 ? '&' : '?') + 'v=' + encode(o);
+  }
+
+  function render() {
+    var q = $('search').value.trim().toLowerCase();
+    var vs = state.videos.slice().reverse().filter(function (v) { return !q || v.title.toLowerCase().indexOf(q) > -1; });
+    $('count').textContent = state.videos.length;
+    $('list').innerHTML = vs.length ? vs.map(function (v) {
+      var l = linkFor(v);
+      return '<div class="vcard"><div class="vthumb"' + (v.poster ? ' style="background-image:url(\'' + esc(v.poster).replace(/'/g, '%27') + '\')"' : '') + '>' + (v.poster ? '' : '▶') + '</div>' +
+        '<div class="vbody"><div class="vtitle">' + esc(v.title) + '</div><div class="vlink">' + esc(l) + '</div>' +
+        '<div class="row" style="margin-top:auto"><button class="btn sm primary" data-copy="' + v.id + '">📋 Copy link</button>' +
+        '<a class="btn sm" href="' + esc(l) + '" target="_blank" rel="noopener">Buka</a>' +
+        '<button class="btn sm" data-edit="' + v.id + '">Edit</button><button class="btn sm danger" data-del="' + v.id + '">Hapus</button></div></div></div>';
+    }).join('') : '<p class="empty">Belum ada video.</p>';
+  }
+
+  function resetForm() {
+    $('form').reset(); $('f-id').value = ''; $('form-title').textContent = 'Tambah Video'; $('cancel').hidden = true;
+    $('pv').style.display = 'none'; $('pv').removeAttribute('src');
+  }
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var id = Number($('f-id').value) || 0;
+    var v = {
+      title: $('f-title').value.trim(),
+      url: $('f-url').value.trim(),
+      poster: $('f-poster').value.trim(),
+      after: parseInt($('f-after').value, 10) || 0,
+      desc: $('f-desc').value.trim()
+    };
+    if (!v.title) return toast('Judul wajib diisi', 1);
+    if (!/^https?:\/\/\S+$/i.test(v.url)) return toast('URL video tidak valid', 1);
+    if (/youtube\.com|youtu\.be/i.test(v.url)) return toast('YouTube tidak bisa (melanggar aturan YouTube). Pakai file MP4 milikmu.', 1);
+    if (v.poster && !/^https?:\/\/\S+$/i.test(v.poster)) return toast('URL thumbnail tidak valid', 1);
+    if (id) Object.assign(state.videos.find(function (x) { return x.id === id; }), v);
+    else { v.id = state.nextId++; state.videos.push(v); }
+    save(); resetForm(); toast('Video tersimpan');
+  });
+  $('cancel').onclick = resetForm;
+  $('preview').onclick = function () {
+    var u = $('f-url').value.trim(); if (!u) return toast('Isi URL video dulu', 1);
+    var pv = $('pv'); pv.style.display = 'block'; pv.src = u;
+    pv.onerror = function () { toast('Video tidak bisa diputar dari URL ini', 1); };
+    pv.play().catch(function () {});
+  };
+  $('search').addEventListener('input', render);
+  $('page-url').value = state.pageUrl;
+  $('page-url').addEventListener('change', function () { state.pageUrl = this.value.trim(); save(); });
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-copy],[data-edit],[data-del]'); if (!t) return;
+    var v = state.videos.find(function (x) { return x.id === Number(t.dataset.copy || t.dataset.edit || t.dataset.del); });
+    if (!v) return;
+    if (t.dataset.copy) {
+      var l = linkFor(v);
+      (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(function () { toast('Link disalin'); }, function () { prompt('Salin link:', l); });
+    } else if (t.dataset.edit) {
+      $('f-id').value = v.id; $('f-title').value = v.title; $('f-url').value = v.url; $('f-poster').value = v.poster || '';
+      $('f-after').value = v.after || ''; $('f-desc').value = v.desc || '';
+      $('form-title').textContent = 'Edit Video'; $('cancel').hidden = false; window.scrollTo({ top: $('form').offsetTop - 80, behavior: 'smooth' });
+    } else if (confirm('Hapus "' + v.title + '"?')) {
+      state.videos = state.videos.filter(function (x) { return x !== v; }); save(); toast('Video dihapus');
+    }
+  });
+
+  $('export').onclick = function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+    a.download = 'video-panel-backup.json'; a.click();
+  };
+  $('import').addEventListener('change', function () {
+    var f = this.files[0]; if (!f) return; var r = new FileReader();
+    r.onload = function () {
+      try { var d = JSON.parse(r.result); if (!Array.isArray(d.videos)) throw 0;
+        if (!confirm('Ganti semua data dengan isi file ini?')) return;
+        state = { pageUrl: d.pageUrl || '', nextId: d.nextId || d.videos.length + 1, videos: d.videos };
+        $('page-url').value = state.pageUrl; save(); toast('Import berhasil');
+      } catch (e) { toast('File tidak valid', 1); }
+    };
+    r.readAsText(f); this.value = '';
+  });
+
+  window.__panel = { linkFor: linkFor };
+  render();
+})();
+</script>
+</body>
+</html>
